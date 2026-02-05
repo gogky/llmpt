@@ -1,0 +1,84 @@
+package config
+
+import (
+	"fmt"
+	"os"
+)
+
+// Config 应用配置
+type Config struct {
+	MongoDB MongoDBConfig
+	Redis   RedisConfig
+	Server  ServerConfig
+}
+
+// MongoDBConfig MongoDB 配置
+type MongoDBConfig struct {
+	URI      string
+	Database string
+	Username string
+	Password string
+}
+
+// RedisConfig Redis 配置
+type RedisConfig struct {
+	Host     string
+	Port     string
+	Password string
+	DB       int
+}
+
+// ServerConfig 服务器配置
+type ServerConfig struct {
+	Port        string
+	TrackerURL  string
+	Environment string
+}
+
+// Load 加载配置（从环境变量）
+func Load() (*Config, error) {
+	config := &Config{
+		MongoDB: MongoDBConfig{
+			URI:      getEnv("MONGODB_URI", "mongodb://admin:admin123@localhost:27017"),
+			Database: getEnv("MONGODB_DATABASE", "hf_p2p_v1"),
+			Username: getEnv("MONGODB_USERNAME", "admin"),
+			Password: getEnv("MONGODB_PASSWORD", "admin123"),
+		},
+		Redis: RedisConfig{
+			Host:     getEnv("REDIS_HOST", "localhost"),
+			Port:     getEnv("REDIS_PORT", "6379"),
+			Password: getEnv("REDIS_PASSWORD", ""),
+			DB:       0,
+		},
+		Server: ServerConfig{
+			Port:        getEnv("SERVER_PORT", "8080"),
+			TrackerURL:  getEnv("TRACKER_URL", "http://localhost:8080/announce"),
+			Environment: getEnv("ENVIRONMENT", "development"),
+		},
+	}
+
+	return config, nil
+}
+
+// GetMongoURI 获取 MongoDB 连接字符串
+func (c *Config) GetMongoURI() string {
+	if c.MongoDB.URI != "" {
+		return c.MongoDB.URI
+	}
+	return fmt.Sprintf("mongodb://%s:%s@localhost:27017",
+		c.MongoDB.Username, c.MongoDB.Password)
+}
+
+// GetRedisAddr 获取 Redis 地址
+func (c *Config) GetRedisAddr() string {
+	return fmt.Sprintf("%s:%s", c.Redis.Host, c.Redis.Port)
+}
+
+// getEnv 获取环境变量，如果不存在则返回默认值
+func getEnv(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
+}
