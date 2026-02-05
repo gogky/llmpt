@@ -16,17 +16,47 @@ type MongoDB struct {
 	Database *mongo.Database
 }
 
+// MongoPoolOptions MongoDB 连接池配置
+type MongoPoolOptions struct {
+	MaxPoolSize     uint64
+	MinPoolSize     uint64
+	MaxConnIdleTime time.Duration
+}
+
+// DefaultMongoPoolOptions 返回默认连接池配置
+func DefaultMongoPoolOptions() MongoPoolOptions {
+	return MongoPoolOptions{
+		MaxPoolSize:     50,
+		MinPoolSize:     10,
+		MaxConnIdleTime: 30 * time.Second,
+	}
+}
+
 // NewMongoDB 创建新的 MongoDB 连接
-func NewMongoDB(uri, database string) (*MongoDB, error) {
+// poolOpts 为 nil 时使用默认连接池配置
+func NewMongoDB(uri, database string, poolOpts *MongoPoolOptions) (*MongoDB, error) {
+	opts := DefaultMongoPoolOptions()
+	if poolOpts != nil {
+		if poolOpts.MaxPoolSize > 0 {
+			opts.MaxPoolSize = poolOpts.MaxPoolSize
+		}
+		if poolOpts.MinPoolSize > 0 {
+			opts.MinPoolSize = poolOpts.MinPoolSize
+		}
+		if poolOpts.MaxConnIdleTime > 0 {
+			opts.MaxConnIdleTime = poolOpts.MaxConnIdleTime
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	// 设置客户端选项
 	clientOptions := options.Client().
 		ApplyURI(uri).
-		SetMaxPoolSize(50).
-		SetMinPoolSize(10).
-		SetMaxConnIdleTime(30 * time.Second)
+		SetMaxPoolSize(opts.MaxPoolSize).
+		SetMinPoolSize(opts.MinPoolSize).
+		SetMaxConnIdleTime(opts.MaxConnIdleTime)
 
 	// 连接到 MongoDB
 	client, err := mongo.Connect(ctx, clientOptions)

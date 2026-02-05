@@ -69,7 +69,7 @@ cfg, err := config.Load()
 
 #### 主要功能：
 - ✅ 自动连接和健康检查
-- ✅ 连接池管理（最大 50，最小 10）
+- ✅ 连接池管理（可配置：`MONGODB_MAX_POOL_SIZE`、`MONGODB_MIN_POOL_SIZE`、`MONGODB_MAX_CONN_IDLE_TIME`，默认 50/10/30s）
 - ✅ 自动创建索引
 - ✅ 支持 torrents 集合操作
 

@@ -15,7 +15,12 @@ type DB struct {
 // New 创建新的数据库连接管理器
 func New(cfg *config.Config) (*DB, error) {
 	// 连接 MongoDB
-	mongodb, err := NewMongoDB(cfg.GetMongoURI(), cfg.MongoDB.Database)
+	poolOpts := &MongoPoolOptions{
+		MaxPoolSize:     cfg.MongoDB.MaxPoolSize,
+		MinPoolSize:     cfg.MongoDB.MinPoolSize,
+		MaxConnIdleTime: cfg.MongoDB.MaxConnIdleTime,
+	}
+	mongodb, err := NewMongoDB(cfg.GetMongoURI(), cfg.MongoDB.Database, poolOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize MongoDB: %w", err)
 	}
