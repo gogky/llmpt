@@ -37,7 +37,7 @@ type RedisConfig struct {
 
 // ServerConfig 服务器配置
 type ServerConfig struct {
-	Port        string
+	Port        int
 	TrackerURL  string
 	Environment string
 }
@@ -63,7 +63,7 @@ func Load() (*Config, error) {
 			MinIdleConns: getEnvUint64("REDIS_MIN_IDLE_CONNS", 10),
 		},
 		Server: ServerConfig{
-			Port:        getEnv("SERVER_PORT", "8080"),
+			Port:        getEnvInt("SERVER_PORT", 8080),
 			TrackerURL:  getEnv("TRACKER_URL", "http://localhost:8080/announce"),
 			Environment: getEnv("ENVIRONMENT", "development"),
 		},
@@ -102,6 +102,19 @@ func getEnvUint64(key string, defaultValue uint64) uint64 {
 		return defaultValue
 	}
 	v, err := strconv.ParseUint(value, 10, 64)
+	if err != nil {
+		return defaultValue
+	}
+	return v
+}
+
+// getEnvInt 获取环境变量并解析为 int
+func getEnvInt(key string, defaultValue int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	v, err := strconv.Atoi(value)
 	if err != nil {
 		return defaultValue
 	}
