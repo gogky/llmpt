@@ -26,7 +26,11 @@ func New(cfg *config.Config) (*DB, error) {
 	}
 
 	// 连接 Redis
-	redisClient, err := NewRedis(cfg.GetRedisAddr(), cfg.Redis.Password, cfg.Redis.DB)
+	redisPoolOpts := &RedisPoolOptions{
+		PoolSize:     int(cfg.Redis.PoolSize),
+		MinIdleConns: int(cfg.Redis.MinIdleConns),
+	}
+	redisClient, err := NewRedis(cfg.GetRedisAddr(), cfg.Redis.Password, cfg.Redis.DB, redisPoolOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Redis: %w", err)
 	}

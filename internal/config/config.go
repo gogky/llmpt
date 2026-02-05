@@ -27,10 +27,12 @@ type MongoDBConfig struct {
 
 // RedisConfig Redis 配置
 type RedisConfig struct {
-	Host     string
-	Port     string
-	Password string
-	DB       int
+	Host         string
+	Port         string
+	Password     string
+	DB           int
+	PoolSize     uint64 // 连接池最大连接数，默认 50
+	MinIdleConns uint64 // 连接池最小空闲连接数，默认 10
 }
 
 // ServerConfig 服务器配置
@@ -53,10 +55,12 @@ func Load() (*Config, error) {
 			MaxConnIdleTime: getEnvDuration("MONGODB_MAX_CONN_IDLE_TIME", 30*time.Second),
 		},
 		Redis: RedisConfig{
-			Host:     getEnv("REDIS_HOST", "localhost"),
-			Port:     getEnv("REDIS_PORT", "6379"),
-			Password: getEnv("REDIS_PASSWORD", ""),
-			DB:       0,
+			Host:         getEnv("REDIS_HOST", "localhost"),
+			Port:         getEnv("REDIS_PORT", "6379"),
+			Password:     getEnv("REDIS_PASSWORD", ""),
+			DB:           0,
+			PoolSize:     getEnvUint64("REDIS_POOL_SIZE", 50),
+			MinIdleConns: getEnvUint64("REDIS_MIN_IDLE_CONNS", 10),
 		},
 		Server: ServerConfig{
 			Port:        getEnv("SERVER_PORT", "8080"),

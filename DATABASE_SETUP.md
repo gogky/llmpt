@@ -236,7 +236,7 @@ func main() {
 
 ### Redis
 - **默认地址**: `localhost:6379`
-- **连接池**: 最大 50，最小 10
+- **连接池**: 可配置（`REDIS_POOL_SIZE`、`REDIS_MIN_IDLE_CONNS`，默认 50/10）
 - **超时设置**:
   - 拨号超时: 5 秒
   - 读超时: 3 秒

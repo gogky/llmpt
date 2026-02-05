@@ -13,14 +13,32 @@ type Redis struct {
 	Client *redis.Client
 }
 
+// RedisPoolOptions Redis 连接池配置
+type RedisPoolOptions struct {
+	PoolSize     int
+	MinIdleConns int
+}
+
 // NewRedis 创建新的 Redis 连接
-func NewRedis(addr, password string, db int) (*Redis, error) {
+// poolOpts 为 nil 时使用默认连接池配置（50/10）
+func NewRedis(addr, password string, db int, poolOpts *RedisPoolOptions) (*Redis, error) {
+	poolSize := 50
+	minIdleConns := 10
+	if poolOpts != nil {
+		if poolOpts.PoolSize > 0 {
+			poolSize = poolOpts.PoolSize
+		}
+		if poolOpts.MinIdleConns > 0 {
+			minIdleConns = poolOpts.MinIdleConns
+		}
+	}
+
 	client := redis.NewClient(&redis.Options{
 		Addr:         addr,
 		Password:     password,
 		DB:           db,
-		PoolSize:     50,
-		MinIdleConns: 10,
+		PoolSize:     poolSize,
+		MinIdleConns: minIdleConns,
 		MaxRetries:   3,
 		DialTimeout:  5 * time.Second,
 		ReadTimeout:  3 * time.Second,
