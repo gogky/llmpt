@@ -16,13 +16,13 @@ type Config struct {
 
 // MongoDBConfig MongoDB 配置
 type MongoDBConfig struct {
-	URI              string
-	Database         string
-	Username         string
-	Password         string
-	MaxPoolSize      uint64        // 连接池最大连接数，默认 50
-	MinPoolSize      uint64        // 连接池最小连接数，默认 10
-	MaxConnIdleTime  time.Duration // 连接最大空闲时间，默认 30s
+	URI             string
+	Database        string
+	Username        string
+	Password        string
+	MaxPoolSize     uint64        // 连接池最大连接数，默认 50
+	MinPoolSize     uint64        // 连接池最小连接数，默认 10
+	MaxConnIdleTime time.Duration // 连接最大空闲时间，默认 30s
 }
 
 // RedisConfig Redis 配置

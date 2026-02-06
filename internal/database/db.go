@@ -52,7 +52,7 @@ func New(cfg *config.Config) (*DB, error) {
 // Close 关闭所有数据库连接
 func (db *DB) Close() error {
 	ctx := context.Background()
-	
+
 	// 关闭 MongoDB
 	if err := db.MongoDB.Close(ctx); err != nil {
 		return fmt.Errorf("failed to close MongoDB: %w", err)

@@ -64,17 +64,17 @@ func DecodeString(data []byte) (string, int, error) {
 	if colonIndex == -1 {
 		return "", 0, fmt.Errorf("invalid string format")
 	}
-	
+
 	length, err := strconv.Atoi(string(data[:colonIndex]))
 	if err != nil {
 		return "", 0, fmt.Errorf("invalid string length: %w", err)
 	}
-	
+
 	start := colonIndex + 1
 	end := start + length
 	if end > len(data) {
 		return "", 0, fmt.Errorf("string length exceeds data")
 	}
-	
+
 	return string(data[start:end]), end, nil
 }

@@ -67,7 +67,7 @@ func (h *Handler) Announce(w http.ResponseWriter, r *http.Request) {
 
 	// 更新统计信息
 	var seeders, leechers int64 = 0, 0
-	
+
 	// 判断是 Seeder 还是 Leecher
 	if req.Left == 0 {
 		seeders = 1
@@ -158,9 +158,9 @@ func parseAnnounceRequest(r *http.Request) (*models.AnnounceRequest, error) {
 	infoHashHex := hex.EncodeToString([]byte(infoHash))
 
 	req := &models.AnnounceRequest{
-		InfoHash: infoHashHex,
-		PeerID:   peerID,
-		Port:     port,
+		InfoHash:   infoHashHex,
+		PeerID:     peerID,
+		Port:       port,
 		Uploaded:   parseInt64(query.Get("uploaded")),
 		Downloaded: parseInt64(query.Get("downloaded")),
 		Left:       parseInt64(query.Get("left")),
@@ -198,7 +198,7 @@ func getClientIP(r *http.Request) string {
 	return host
 }
 
-// sendSuccess 发送成功响应
+// sendSuccess 发送成功响应（支持 IPv4 和 IPv6，BEP-0007）
 func (h *Handler) sendSuccess(w http.ResponseWriter, req *models.AnnounceRequest, peers []string, seeders, leechers int64) {
 	// 构建响应字典
 	response := make(map[string][]byte)
@@ -209,33 +209,74 @@ func (h *Handler) sendSuccess(w http.ResponseWriter, req *models.AnnounceRequest
 	response["complete"] = EncodeInt(seeders)    // Seeders
 	response["incomplete"] = EncodeInt(leechers) // Leechers
 
+	// 分离 IPv4 和 IPv6 Peer（BEP-0007）
+	ipv4Peers, ipv6Peers := SeparatePeersByIPVersion(peers)
+
 	// 处理 Peer 列表
 	if req.Compact == 1 {
-		// Compact 模式：返回二进制格式（BEP-0023）
-		compactPeers, err := CompactPeers(peers)
-		if err != nil {
-			h.sendError(w, fmt.Sprintf("failed to compact peers: %v", err))
-			return
+		// Compact 模式：返回二进制格式（BEP-0023 + BEP-0007）
+
+		// IPv4 Peers
+		if len(ipv4Peers) > 0 {
+			compactPeers, err := CompactPeersIPv4(ipv4Peers)
+			if err != nil {
+				h.sendError(w, fmt.Sprintf("failed to compact IPv4 peers: %v", err))
+				return
+			}
+			response["peers"] = EncodeBytes(compactPeers)
+		} else {
+			// 即使没有 IPv4 peer，也返回空字符串
+			response["peers"] = EncodeBytes([]byte{})
 		}
-		response["peers"] = EncodeBytes(compactPeers)
+
+		// IPv6 Peers（BEP-0007）
+		if len(ipv6Peers) > 0 {
+			compactPeers6, err := CompactPeersIPv6(ipv6Peers)
+			if err != nil {
+				h.sendError(w, fmt.Sprintf("failed to compact IPv6 peers: %v", err))
+				return
+			}
+			response["peers6"] = EncodeBytes(compactPeers6)
+		}
 	} else {
 		// 标准模式：返回字典列表
-		peerList := make([][]byte, 0, len(peers))
-		for _, peer := range peers {
-			parts := strings.Split(peer, ":")
-			if len(parts) != 2 {
+		// IPv4 Peers
+		ipv4PeerList := make([][]byte, 0, len(ipv4Peers))
+		for _, peer := range ipv4Peers {
+			host, portStr, err := net.SplitHostPort(peer)
+			if err != nil {
 				continue
 			}
-			port, _ := strconv.Atoi(parts[1])
+			port, _ := strconv.Atoi(portStr)
 
 			peerDict := make(map[string][]byte)
-			peerDict["ip"] = EncodeString(parts[0])
+			peerDict["ip"] = EncodeString(host)
 			peerDict["port"] = EncodeInt(int64(port))
 			peerDict["peer id"] = EncodeString("") // 可选
 
-			peerList = append(peerList, EncodeDict(peerDict))
+			ipv4PeerList = append(ipv4PeerList, EncodeDict(peerDict))
 		}
-		response["peers"] = EncodeList(peerList)
+		response["peers"] = EncodeList(ipv4PeerList)
+
+		// IPv6 Peers（BEP-0007）
+		if len(ipv6Peers) > 0 {
+			ipv6PeerList := make([][]byte, 0, len(ipv6Peers))
+			for _, peer := range ipv6Peers {
+				host, portStr, err := net.SplitHostPort(peer)
+				if err != nil {
+					continue
+				}
+				port, _ := strconv.Atoi(portStr)
+
+				peerDict := make(map[string][]byte)
+				peerDict["ip"] = EncodeString(host)
+				peerDict["port"] = EncodeInt(int64(port))
+				peerDict["peer id"] = EncodeString("") // 可选
+
+				ipv6PeerList = append(ipv6PeerList, EncodeDict(peerDict))
+			}
+			response["peers6"] = EncodeList(ipv6PeerList)
+		}
 	}
 
 	// 编码为 Bencode

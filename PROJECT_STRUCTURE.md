@@ -281,6 +281,7 @@ func (r *Redis) AddPeer(ctx context.Context, infoHash, peer string) error
 - **[README.md](./README.md)**: 系统设计文档
 - **[DATABASE_SETUP.md](./DATABASE_SETUP.md)**: 数据库使用指南
 - **[TRACKER_GUIDE.md](./TRACKER_GUIDE.md)**: Tracker Server 使用指南 ✨
+- **[IPv6_SUPPORT.md](./IPv6_SUPPORT.md)**: IPv6 支持说明 ✨
 - **[STEP2_COMPLETION.md](./STEP2_COMPLETION.md)**: Step 2 完成总结 ✨
 - **[REFACTORING.md](./REFACTORING.md)**: 代码重构说明
 - **[.env.example](./.env.example)**: 配置示例

@@ -74,12 +74,12 @@ func (r *Redis) Close() error {
 // TTL 默认 30 分钟
 func (r *Redis) AddPeer(ctx context.Context, infoHash, peer string) error {
 	key := fmt.Sprintf("tracker:peers:%s", infoHash)
-	
+
 	// 添加到集合
 	if err := r.Client.SAdd(ctx, key, peer).Err(); err != nil {
 		return err
 	}
-	
+
 	// 设置 TTL
 	return r.Client.Expire(ctx, key, 30*time.Minute).Err()
 }
@@ -88,12 +88,12 @@ func (r *Redis) AddPeer(ctx context.Context, infoHash, peer string) error {
 // maxPeers: 最多返回的 Peer 数量（0 表示全部）
 func (r *Redis) GetPeers(ctx context.Context, infoHash string, maxPeers int64) ([]string, error) {
 	key := fmt.Sprintf("tracker:peers:%s", infoHash)
-	
+
 	if maxPeers <= 0 {
 		// 返回所有
 		return r.Client.SMembers(ctx, key).Result()
 	}
-	
+
 	// 随机返回指定数量
 	return r.Client.SRandMemberN(ctx, key, maxPeers).Result()
 }
@@ -113,13 +113,13 @@ func (r *Redis) GetPeerCount(ctx context.Context, infoHash string) (int64, error
 // UpdateStats 更新统计信息
 func (r *Redis) UpdateStats(ctx context.Context, infoHash string, seeders, leechers, completed int64) error {
 	key := fmt.Sprintf("tracker:stats:%s", infoHash)
-	
+
 	pipe := r.Client.Pipeline()
 	pipe.HSet(ctx, key, "seeders", seeders)
 	pipe.HSet(ctx, key, "leechers", leechers)
 	pipe.HSet(ctx, key, "completed", completed)
 	pipe.Expire(ctx, key, 1*time.Hour) // 统计信息保留 1 小时
-	
+
 	_, err := pipe.Exec(ctx)
 	return err
 }

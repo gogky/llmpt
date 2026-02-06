@@ -73,7 +73,7 @@ func main() {
 	<-quit
 
 	fmt.Println("\n🛑 Shutting down server...")
-	
+
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -88,13 +88,13 @@ func main() {
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		
+
 		// 记录请求
 		log.Printf("%s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
-		
+
 		// 调用下一个处理器
 		next.ServeHTTP(w, r)
-		
+
 		// 记录耗时
 		duration := time.Since(start)
 		log.Printf("Request completed in %v", duration)

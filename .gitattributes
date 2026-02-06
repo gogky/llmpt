@@ -1,0 +1,18 @@
+# 1. 自动检测文本文件并统一设置为 LF
+* text=auto eol=lf
+
+# 2. 明确指定特定类型的文件为文本文件
+*.go      text eol=lf
+*.mod     text eol=lf
+*.sum     text eol=lf
+*.md      text eol=lf
+*.json    text eol=lf
+*.yaml    text eol=lf
+*.yml     text eol=lf
+
+# 3. 确保二进制文件（如图片、编译后的 exe）不被误改
+*.png     binary
+*.jpg     binary
+*.gif     binary
+*.ico     binary
+*.exe     binary

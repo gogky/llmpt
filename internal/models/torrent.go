@@ -33,25 +33,25 @@ type TorrentWithStats struct {
 
 // PeerInfo Peer 信息
 type PeerInfo struct {
-	IP       string `json:"ip"`
-	Port     int    `json:"port"`
-	PeerID   string `json:"peer_id,omitempty"`
-	Uploaded int64  `json:"uploaded,omitempty"`
-	Downloaded int64 `json:"downloaded,omitempty"`
-	Left     int64  `json:"left,omitempty"`
+	IP         string `json:"ip"`
+	Port       int    `json:"port"`
+	PeerID     string `json:"peer_id,omitempty"`
+	Uploaded   int64  `json:"uploaded,omitempty"`
+	Downloaded int64  `json:"downloaded,omitempty"`
+	Left       int64  `json:"left,omitempty"`
 }
 
 // AnnounceRequest Tracker announce 请求参数
 type AnnounceRequest struct {
-	InfoHash   string `json:"info_hash"`   // 种子 hash
-	PeerID     string `json:"peer_id"`     // 客户端 ID
-	Port       int    `json:"port"`        // 监听端口
-	Uploaded   int64  `json:"uploaded"`    // 已上传字节数
-	Downloaded int64  `json:"downloaded"`  // 已下载字节数
-	Left       int64  `json:"left"`        // 剩余字节数
-	Event      string `json:"event"`       // 事件: started, completed, stopped
-	Compact    int    `json:"compact"`     // 是否使用紧凑模式
-	NumWant    int    `json:"numwant"`     // 期望返回的 peer 数量
+	InfoHash   string `json:"info_hash"`  // 种子 hash
+	PeerID     string `json:"peer_id"`    // 客户端 ID
+	Port       int    `json:"port"`       // 监听端口
+	Uploaded   int64  `json:"uploaded"`   // 已上传字节数
+	Downloaded int64  `json:"downloaded"` // 已下载字节数
+	Left       int64  `json:"left"`       // 剩余字节数
+	Event      string `json:"event"`      // 事件: started, completed, stopped
+	Compact    int    `json:"compact"`    // 是否使用紧凑模式
+	NumWant    int    `json:"numwant"`    // 期望返回的 peer 数量
 }
 
 // AnnounceResponse Tracker announce 响应
