@@ -127,8 +127,10 @@ func parseAnnounceRequest(r *http.Request) (*models.AnnounceRequest, error) {
 		return nil, fmt.Errorf("invalid port: %s", portStr)
 	}
 
-	// 转换 info_hash 为 Hex 字符串（URL 编码的是原始字节）
-	infoHashHex := hex.EncodeToString([]byte(infoHash))
+	// 转换 info_hash 为 Hex 字符串
+	// 真实 BT 客户端发送 20 字节原始二进制（URL 编码），需要转为 hex
+	// curl 测试可能直接发送 40 字符 hex 字符串，不需要再转
+	infoHashHex := normalizeInfoHash(infoHash)
 
 	req := &models.AnnounceRequest{
 		InfoHash:   infoHashHex,
@@ -273,6 +275,29 @@ func (h *Handler) sendError(w http.ResponseWriter, reason string) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(http.StatusOK) // Tracker 错误仍返回 200
 	w.Write(data)
+}
+
+// normalizeInfoHash 统一处理 info_hash 参数
+// 真实 BT 客户端: 发送 20 字节原始二进制 → 需要 hex 编码为 40 字符
+// curl 测试: 可能直接发送 40 字符 hex 字符串 → 直接使用
+func normalizeInfoHash(raw string) string {
+	// 如果长度是 40 且全是合法 hex 字符，说明已经是 hex 格式
+	if len(raw) == 40 && isHexString(raw) {
+		return strings.ToLower(raw)
+	}
+
+	// 否则是原始二进制（20 字节），转为 hex
+	return hex.EncodeToString([]byte(raw))
+}
+
+// isHexString 检查字符串是否全部由合法 hex 字符组成
+func isHexString(s string) bool {
+	for _, c := range s {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return false
+		}
+	}
+	return true
 }
 
 // parseInt 解析整数参数
