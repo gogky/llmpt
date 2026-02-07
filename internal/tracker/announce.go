@@ -39,8 +39,14 @@ func (h *Handler) Announce(w http.ResponseWriter, r *http.Request) {
 	// 获取客户端 IP
 	clientIP := getClientIP(r)
 
-	// 构建 Peer 标识 (IP:Port)
-	peer := fmt.Sprintf("%s:%d", clientIP, req.Port)
+	// 构建 Peer 标识
+	// 必须使用 net.JoinHostPort，它会自动给 IPv6 地址加方括号
+	// IPv4: "192.168.1.100:6881"
+	// IPv6: "[2402:4e00:1820:400:...]:6881"
+	peer := net.JoinHostPort(clientIP, strconv.Itoa(req.Port))
+
+	fmt.Printf("[announce] peer_id=%s ip=%s peer=%s event=%s left=%d\n",
+		req.PeerID, clientIP, peer, req.Event, req.Left)
 
 	// 处理不同事件
 	switch req.Event {
@@ -49,7 +55,9 @@ func (h *Handler) Announce(w http.ResponseWriter, r *http.Request) {
 		if err := h.db.Redis.RemovePeer(ctx, req.InfoHash, peer); err != nil {
 			fmt.Printf("failed to remove peer: %v\n", err)
 		}
-		h.sendSuccess(w, req, []string{}, 0, 0)
+		// 重新计算统计
+		seeders, leechers := h.countStats(ctx, req.InfoHash)
+		h.sendSuccess(w, req, []string{}, seeders, leechers)
 		return
 
 	case "completed":
@@ -65,35 +73,6 @@ func (h *Handler) Announce(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 更新统计信息
-	var seeders, leechers int64 = 0, 0
-
-	// 判断是 Seeder 还是 Leecher
-	if req.Left == 0 {
-		seeders = 1
-	} else {
-		leechers = 1
-	}
-
-	// 获取当前统计信息并更新
-	if currentStatsMap, err := h.db.Redis.GetStats(ctx, req.InfoHash); err == nil && len(currentStatsMap) > 0 {
-		// 如果已有统计信息，则累加
-		if s, ok := currentStatsMap["seeders"]; ok {
-			if val, _ := strconv.ParseInt(s, 10, 64); val > 0 {
-				seeders += val
-			}
-		}
-		if l, ok := currentStatsMap["leechers"]; ok {
-			if val, _ := strconv.ParseInt(l, 10, 64); val > 0 {
-				leechers += val
-			}
-		}
-	}
-
-	if err := h.db.Redis.UpdateStats(ctx, req.InfoHash, seeders, leechers, 0); err != nil {
-		fmt.Printf("failed to update stats: %v\n", err)
-	}
-
 	// 获取其他 Peer（排除自己）
 	numWant := req.NumWant
 	if numWant == 0 || numWant > 50 {
@@ -107,7 +86,7 @@ func (h *Handler) Announce(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 排除当前客户端自己
-	filteredPeers := []string{}
+	filteredPeers := make([]string, 0, len(peers))
 	for _, p := range peers {
 		if p != peer {
 			filteredPeers = append(filteredPeers, p)
@@ -119,20 +98,14 @@ func (h *Handler) Announce(w http.ResponseWriter, r *http.Request) {
 		filteredPeers = filteredPeers[:numWant]
 	}
 
-	// 获取统计信息
-	currentStatsMap, err := h.db.Redis.GetStats(ctx, req.InfoHash)
-	var finalSeeders, finalLeechers int64 = 0, 0
-	if err == nil && len(currentStatsMap) > 0 {
-		if s, ok := currentStatsMap["seeders"]; ok {
-			finalSeeders, _ = strconv.ParseInt(s, 10, 64)
-		}
-		if l, ok := currentStatsMap["leechers"]; ok {
-			finalLeechers, _ = strconv.ParseInt(l, 10, 64)
-		}
-	}
+	// 从 Redis 直接计算统计信息（Peer 集合中的实际数量）
+	seeders, leechers := h.countStats(ctx, req.InfoHash)
+
+	fmt.Printf("[announce] info_hash=%s total_peers=%d returned=%d seeders=%d leechers=%d\n",
+		req.InfoHash[:16]+"...", len(peers), len(filteredPeers), seeders, leechers)
 
 	// 发送响应
-	h.sendSuccess(w, req, filteredPeers, finalSeeders, finalLeechers)
+	h.sendSuccess(w, req, filteredPeers, seeders, leechers)
 }
 
 // parseAnnounceRequest 解析 Announce 请求参数
@@ -318,6 +291,23 @@ func parseInt64(s string) int64 {
 	}
 	n, _ := strconv.ParseInt(s, 10, 64)
 	return n
+}
+
+// countStats 从 Redis 直接计算统计信息
+// 使用 Peer 集合的实际成员数量，不再手动累加，避免数字膨胀
+func (h *Handler) countStats(ctx context.Context, infoHash string) (seeders, leechers int64) {
+	// 直接从 Redis Set 获取当前 Peer 总数
+	totalPeers, err := h.db.Redis.GetPeerCount(ctx, infoHash)
+	if err != nil {
+		return 0, 0
+	}
+
+	// 简化处理：所有在线 Peer 都算 seeders
+	// 因为当前 Redis Set 中只存了 "IP:Port"，没有区分 seeder/leecher
+	// 真实的区分需要在 Redis 中额外存储 left 值（后续优化）
+	seeders = totalPeers
+	leechers = 0
+	return
 }
 
 // StartCleanup 启动定期清理过期 Peer 的任务
