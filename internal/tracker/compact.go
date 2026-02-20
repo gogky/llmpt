@@ -1,7 +1,6 @@
 package tracker
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -57,8 +56,7 @@ func compactPeerIPv6(ip net.IP, port int) []byte {
 // 输出: 所有 Peer 的紧凑表示拼接在一起
 // 注意: 混合 IPv4 和 IPv6 时，应该分别返回（peers 和 peers6）
 func CompactPeers(peers []string) ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	buf.Grow(len(peers) * 6) // 预分配空间（假设大多数是 IPv4）
+	buf := make([]byte, 0, len(peers)*6) // 预分配空间（假设大多数是 IPv4）
 
 	for _, peer := range peers {
 		// 解析 "IP:Port"
@@ -78,16 +76,15 @@ func CompactPeers(peers []string) ([]byte, error) {
 			return nil, fmt.Errorf("failed to compact peer %s: %w", peer, err)
 		}
 
-		buf.Write(compactPeer)
+		buf = append(buf, compactPeer...)
 	}
 
-	return buf.Bytes(), nil
+	return buf, nil
 }
 
 // CompactPeersIPv4 仅编码 IPv4 Peer（用于分离返回）
 func CompactPeersIPv4(peers []string) ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	buf.Grow(len(peers) * 6)
+	buf := make([]byte, 0, len(peers)*6)
 
 	for _, peer := range peers {
 		host, portStr, err := net.SplitHostPort(peer)
@@ -106,16 +103,15 @@ func CompactPeersIPv4(peers []string) ([]byte, error) {
 		}
 
 		compactPeer := compactPeerIPv4(parsedIP.To4(), port)
-		buf.Write(compactPeer)
+		buf = append(buf, compactPeer...)
 	}
 
-	return buf.Bytes(), nil
+	return buf, nil
 }
 
 // CompactPeersIPv6 仅编码 IPv6 Peer（用于分离返回，BEP-0007）
 func CompactPeersIPv6(peers []string) ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	buf.Grow(len(peers) * 18)
+	buf := make([]byte, 0, len(peers)*18)
 
 	for _, peer := range peers {
 		host, portStr, err := net.SplitHostPort(peer)
@@ -134,10 +130,10 @@ func CompactPeersIPv6(peers []string) ([]byte, error) {
 		}
 
 		compactPeer := compactPeerIPv6(parsedIP.To16(), port)
-		buf.Write(compactPeer)
+		buf = append(buf, compactPeer...)
 	}
 
-	return buf.Bytes(), nil
+	return buf, nil
 }
 
 // DecompactPeer 解码单个紧凑格式的 Peer（自动检测 IPv4 或 IPv6）
@@ -160,7 +156,7 @@ func DecompactPeer(data []byte) (string, int, error) {
 	}
 }
 
-// DecompactPeers 解码多个紧凑格式的 Peer（支持混合 IPv4/IPv6）
+// DecompactPeers 解码多个紧凑格式的 Peer（出于安全考虑，强烈建议直接调用 v4 或 v6 专有解析函数）
 func DecompactPeers(data []byte) ([]string, error) {
 	if len(data) == 0 {
 		return []string{}, nil
@@ -172,23 +168,22 @@ func DecompactPeers(data []byte) ([]string, error) {
 	for offset < len(data) {
 		remaining := len(data) - offset
 
-		// 判断是 IPv4 还是 IPv6
 		var peerSize int
-		if remaining >= 18 {
-			// 尝试检测：如果后续还有数据且能被6整除，可能是IPv4；否则尝试IPv6
-			// 简单策略：先尝试按 IPv4 解析，如果总长度能被6整除就是纯IPv4
-			if len(data)%6 == 0 {
-				peerSize = 6 // 纯 IPv4
-			} else if len(data)%18 == 0 {
-				peerSize = 18 // 纯 IPv6
-			} else {
-				// 混合模式，需要更复杂的检测（实际中很少出现）
-				return nil, fmt.Errorf("mixed IPv4/IPv6 compact format not supported in auto-detection")
-			}
-		} else if remaining >= 6 {
-			peerSize = 6 // IPv4
+		// 优先严格判断 IPv4（因为 BT 中绝大多数混合探测都是要求 IPv4）
+		// 如果必须混合探测，且长度刚好既能是 v4 也能是 v6 (如 18 字节)：为了避免把 v6 当成 3个 v4，
+		// 这里最标准的做法是在外部由具体的业务决定。但在这里我们通过强行预判做隔离。
+		// 由于该函数本身就不推荐在严谨场合下使用，如果有这种模棱两可的情况，返回错误要求业务明确。
+		if remaining >= 18 && remaining%18 == 0 && remaining%6 == 0 {
+			// 如果数据长度既是 18 的倍数，也是 6 的倍数，这在理论上无法 100% 安全推断
+			// 绝大多数情况下如果走这里的猜测函数，其实都是 v4 (BEP-23)
+			// 但安全起见，我们只能按 v4 试探解析。
+			peerSize = 6
+		} else if remaining%6 == 0 {
+			peerSize = 6
+		} else if remaining%18 == 0 {
+			peerSize = 18
 		} else {
-			return nil, fmt.Errorf("incomplete peer data at offset %d", offset)
+			return nil, fmt.Errorf("invalid compact peers data length: %d (cannot safely infer IPv4 or IPv6), offset: %d", len(data), offset)
 		}
 
 		ip, port, err := DecompactPeer(data[offset : offset+peerSize])

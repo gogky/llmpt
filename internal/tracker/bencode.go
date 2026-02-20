@@ -13,18 +13,30 @@ import (
 // EncodeString 编码字符串: <长度>:<内容>
 // 例如: "spam" -> "4:spam"
 func EncodeString(s string) []byte {
-	return []byte(fmt.Sprintf("%d:%s", len(s), s))
+	buf := make([]byte, 0, len(s)+20)
+	buf = strconv.AppendInt(buf, int64(len(s)), 10)
+	buf = append(buf, ':')
+	buf = append(buf, s...)
+	return buf
 }
 
 // EncodeBytes 编码字节数组
 func EncodeBytes(b []byte) []byte {
-	return []byte(fmt.Sprintf("%d:%s", len(b), string(b)))
+	buf := make([]byte, 0, len(b)+20)
+	buf = strconv.AppendInt(buf, int64(len(b)), 10)
+	buf = append(buf, ':')
+	buf = append(buf, b...)
+	return buf
 }
 
 // EncodeInt 编码整数: i<数字>e
 // 例如: 42 -> "i42e"
 func EncodeInt(n int64) []byte {
-	return []byte(fmt.Sprintf("i%de", n))
+	buf := make([]byte, 0, 24)
+	buf = append(buf, 'i')
+	buf = strconv.AppendInt(buf, n, 10)
+	buf = append(buf, 'e')
+	return buf
 }
 
 // EncodeList 编码列表: l<元素>e
