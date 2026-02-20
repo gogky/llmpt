@@ -37,8 +37,8 @@ func main() {
 	// 创建 Tracker 处理器
 	handler := tracker.NewHandler(db, cfg)
 
-	// 启动后台清理任务
-	go handler.StartCleanup(ctx, 5*time.Minute)
+	// 启动后台清理任务（时间间隔紧跟 AnnounceInterval 配置）
+	go handler.StartCleanup(ctx, cfg.Server.AnnounceInterval)
 
 	// 设置路由
 	mux := http.NewServeMux()

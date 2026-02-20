@@ -87,7 +87,8 @@ func (h *Handler) Announce(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 更新 Peer 信息（使用配置中的 TTL）
-	if err := h.db.Redis.AddPeer(ctx, req.InfoHash, peer, h.config.Server.AnnounceInterval); err != nil {
+	isSeeder := req.Left == 0
+	if err := h.db.Redis.AddPeer(ctx, req.InfoHash, peer, isSeeder, h.config.Server.AnnounceInterval); err != nil {
 		h.sendError(w, fmt.Sprintf("failed to add peer: %v", err))
 		return
 	}
@@ -98,7 +99,7 @@ func (h *Handler) Announce(w http.ResponseWriter, r *http.Request) {
 		numWant = 50 // 默认返回 50 个
 	}
 
-	peers, err := h.db.Redis.GetPeers(ctx, req.InfoHash, int64(numWant+1)) // 多取 1 个，用于排除自己
+	peers, err := h.db.Redis.GetPeersForRequest(ctx, req.InfoHash, int64(numWant+1), isSeeder) // 多取 1 个，用于排除自己
 	if err != nil {
 		h.sendError(w, fmt.Sprintf("failed to get peers: %v", err))
 		return
@@ -338,35 +339,36 @@ func parseInt64(s string) int64 {
 }
 
 // countStats 从 Redis 直接计算统计信息
-// 使用 Peer 集合的实际成员数量，不再手动累加，避免数字膨胀
+// 使用 ZSet 精确计算 Seeders 和 Leechers
 func (h *Handler) countStats(ctx context.Context, infoHash string) (seeders, leechers int64) {
-	// 直接从 Redis Set 获取当前 Peer 总数
-	totalPeers, err := h.db.Redis.GetPeerCount(ctx, infoHash)
+	s, l, err := h.db.Redis.GetPeerCount(ctx, infoHash)
 	if err != nil {
 		return 0, 0
 	}
 
-	// 简化处理：所有在线 Peer 都算 seeders
-	// 因为当前 Redis Set 中只存了 "IP:Port"，没有区分 seeder/leecher
-	// 真实的区分需要在 Redis 中额外存储 left 值（后续优化）
-	seeders = totalPeers
-	leechers = 0
-	return
+	return s, l
 }
 
 // StartCleanup 启动定期清理过期 Peer 的任务
-// 虽然 Redis TTL 会自动删除，但这个任务可以用于更新统计信息
+// 定期收割 ZSet 中超时的死节点，维持健康的 Peer 列表
 func (h *Handler) StartCleanup(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+
+	// 死亡判定线：超过 2 倍心跳间隔没报备的视为死寂节点
+	timeout := interval * 2
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			// TODO: 可以在这里实现统计信息的重新计算
-			fmt.Println("Cleanup task running...")
+			if err := h.db.Redis.CleanExpiredPeers(ctx, timeout); err != nil {
+				fmt.Printf("[cleanup] failed to clean expired peers: %v\n", err)
+			} else {
+				// 正常运行时可注释掉，避免刷屏
+				// fmt.Println("[cleanup] Successfully executed GC for dead peers.")
+			}
 		}
 	}
 }

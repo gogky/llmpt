@@ -87,16 +87,18 @@ func testRedis(db *database.DB) {
 		"192.168.1.102:6881",
 	}
 
-	for _, peer := range peers {
-		err := db.Redis.AddPeer(ctx, testInfoHash, peer, 30*time.Minute)
+	for i, peer := range peers {
+		// 前两个当 seeder，后一个当 leecher
+		isSeeder := i < 2
+		err := db.Redis.AddPeer(ctx, testInfoHash, peer, isSeeder, 30*time.Minute)
 		if err != nil {
 			log.Printf("Failed to add peer: %v", err)
 		}
 	}
 	fmt.Printf("✓ Added %d test peers\n", len(peers))
 
-	// 获取 Peer 列表
-	foundPeers, err := db.Redis.GetPeers(ctx, testInfoHash, 0)
+	// 获取 Peer 列表 (模拟 Leecher 请求)
+	foundPeers, err := db.Redis.GetPeersForRequest(ctx, testInfoHash, 10, false)
 	if err != nil {
 		log.Printf("Failed to get peers: %v", err)
 	} else {
@@ -104,11 +106,11 @@ func testRedis(db *database.DB) {
 	}
 
 	// 获取 Peer 数量
-	count, err := db.Redis.GetPeerCount(ctx, testInfoHash)
+	seeders, leechers, err := db.Redis.GetPeerCount(ctx, testInfoHash)
 	if err != nil {
 		log.Printf("Failed to get peer count: %v", err)
 	} else {
-		fmt.Printf("✓ Peer count: %d\n", count)
+		fmt.Printf("✓ Peer count: seeders=%d, leechers=%d\n", seeders, leechers)
 	}
 
 	// 更新统计信息
@@ -128,7 +130,9 @@ func testRedis(db *database.DB) {
 	}
 
 	// 清理测试数据
-	db.Redis.Client.Del(ctx, fmt.Sprintf("tracker:peers:%s", testInfoHash))
+	db.Redis.Client.Del(ctx, fmt.Sprintf("tracker:seeders:%s", testInfoHash))
+	db.Redis.Client.Del(ctx, fmt.Sprintf("tracker:leechers:%s", testInfoHash))
+	db.Redis.Client.SRem(ctx, "tracker:active_torrents", testInfoHash)
 	db.Redis.Client.Del(ctx, fmt.Sprintf("tracker:stats:%s", testInfoHash))
 	fmt.Println("✓ Cleaned up test data")
 }
