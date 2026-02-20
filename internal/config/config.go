@@ -16,13 +16,13 @@ type Config struct {
 
 // MongoDBConfig MongoDB 配置
 type MongoDBConfig struct {
-	URI              string
-	Database         string
-	Username         string
-	Password         string
-	MaxPoolSize      uint64        // 连接池最大连接数，默认 50
-	MinPoolSize      uint64        // 连接池最小连接数，默认 10
-	MaxConnIdleTime  time.Duration // 连接最大空闲时间，默认 30s
+	URI             string
+	Database        string
+	Username        string
+	Password        string
+	MaxPoolSize     uint64        // 连接池最大连接数，默认 50
+	MinPoolSize     uint64        // 连接池最小连接数，默认 10
+	MaxConnIdleTime time.Duration // 连接最大空闲时间，默认 30s
 }
 
 // RedisConfig Redis 配置
@@ -37,9 +37,13 @@ type RedisConfig struct {
 
 // ServerConfig 服务器配置
 type ServerConfig struct {
-	Port        string
-	TrackerURL  string
-	Environment string
+	Port                int
+	TrackerURL          string
+	Environment         string
+	AnnounceInterval    time.Duration
+	AnnounceMinInterval time.Duration
+	RateLimitWindow     time.Duration
+	RateLimitBurst      int
 }
 
 // Load 加载配置（从环境变量）
@@ -63,9 +67,13 @@ func Load() (*Config, error) {
 			MinIdleConns: getEnvUint64("REDIS_MIN_IDLE_CONNS", 10),
 		},
 		Server: ServerConfig{
-			Port:        getEnv("SERVER_PORT", "8080"),
-			TrackerURL:  getEnv("TRACKER_URL", "http://localhost:8080/announce"),
-			Environment: getEnv("ENVIRONMENT", "development"),
+			Port:                getEnvInt("SERVER_PORT", 8080),
+			TrackerURL:          getEnv("TRACKER_URL", "http://localhost:8080/announce"),
+			Environment:         getEnv("ENVIRONMENT", "development"),
+			AnnounceInterval:    getEnvDuration("ANNOUNCE_INTERVAL", 1800*time.Second),
+			AnnounceMinInterval: getEnvDuration("ANNOUNCE_MIN_INTERVAL", 900*time.Second),
+			RateLimitWindow:     getEnvDuration("RATE_LIMIT_WINDOW", 15*time.Minute),
+			RateLimitBurst:      getEnvInt("RATE_LIMIT_BURST", 30),
 		},
 	}
 
@@ -102,6 +110,19 @@ func getEnvUint64(key string, defaultValue uint64) uint64 {
 		return defaultValue
 	}
 	v, err := strconv.ParseUint(value, 10, 64)
+	if err != nil {
+		return defaultValue
+	}
+	return v
+}
+
+// getEnvInt 获取环境变量并解析为 int
+func getEnvInt(key string, defaultValue int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	v, err := strconv.Atoi(value)
 	if err != nil {
 		return defaultValue
 	}
