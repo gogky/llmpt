@@ -10,18 +10,23 @@ import (
 	"strings"
 	"time"
 
+	"llmpt/internal/config"
 	"llmpt/internal/database"
 	"llmpt/internal/models"
 )
 
 // Handler Tracker HTTP 处理器
 type Handler struct {
-	db *database.DB
+	db     *database.DB
+	config *config.Config
 }
 
 // NewHandler 创建 Tracker 处理器
-func NewHandler(db *database.DB) *Handler {
-	return &Handler{db: db}
+func NewHandler(db *database.DB, cfg *config.Config) *Handler {
+	return &Handler{
+		db:     db,
+		config: cfg,
+	}
 }
 
 // Announce 处理 /announce 请求（BEP-0003 核心接口）
@@ -38,6 +43,20 @@ func (h *Handler) Announce(w http.ResponseWriter, r *http.Request) {
 
 	// 获取客户端 IP
 	clientIP := getClientIP(r)
+
+	// 检查请求频率限制 (Rate Limit)
+	allowed, err := h.db.Redis.CheckRateLimit(ctx, clientIP, h.config.Server.RateLimitWindow, h.config.Server.RateLimitBurst)
+	if err != nil {
+		fmt.Printf("[announce] ratelimit err: %v\n", err)
+		h.sendError(w, "internal server error")
+		return
+	}
+	if !allowed {
+		fmt.Printf("[announce] ratelimit exceeded IP: %s\n", clientIP)
+		// BT协议标准做法：返回failure reason
+		h.sendError(w, "Too many requests. Please slow down.")
+		return
+	}
 
 	// 构建 Peer 标识
 	// 必须使用 net.JoinHostPort，它会自动给 IPv6 地址加方括号
@@ -67,8 +86,8 @@ func (h *Handler) Announce(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 更新 Peer 信息（自动设置 30 分钟 TTL）
-	if err := h.db.Redis.AddPeer(ctx, req.InfoHash, peer); err != nil {
+	// 更新 Peer 信息（使用配置中的 TTL）
+	if err := h.db.Redis.AddPeer(ctx, req.InfoHash, peer, h.config.Server.AnnounceInterval); err != nil {
 		h.sendError(w, fmt.Sprintf("failed to add peer: %v", err))
 		return
 	}
@@ -178,9 +197,9 @@ func (h *Handler) sendSuccess(w http.ResponseWriter, req *models.AnnounceRequest
 	// 构建响应字典
 	response := make(map[string][]byte)
 
-	// 设置心跳间隔（秒）
-	response["interval"] = EncodeInt(1800)       // 30 分钟
-	response["min interval"] = EncodeInt(900)    // 15 分钟
+	// 设置心跳间隔（秒），使用配置中的值
+	response["interval"] = EncodeInt(int64(h.config.Server.AnnounceInterval.Seconds()))
+	response["min interval"] = EncodeInt(int64(h.config.Server.AnnounceMinInterval.Seconds()))
 	response["complete"] = EncodeInt(seeders)    // Seeders
 	response["incomplete"] = EncodeInt(leechers) // Leechers
 

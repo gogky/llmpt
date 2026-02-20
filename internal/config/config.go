@@ -37,9 +37,13 @@ type RedisConfig struct {
 
 // ServerConfig 服务器配置
 type ServerConfig struct {
-	Port        int
-	TrackerURL  string
-	Environment string
+	Port                int
+	TrackerURL          string
+	Environment         string
+	AnnounceInterval    time.Duration
+	AnnounceMinInterval time.Duration
+	RateLimitWindow     time.Duration
+	RateLimitBurst      int
 }
 
 // Load 加载配置（从环境变量）
@@ -63,9 +67,13 @@ func Load() (*Config, error) {
 			MinIdleConns: getEnvUint64("REDIS_MIN_IDLE_CONNS", 10),
 		},
 		Server: ServerConfig{
-			Port:        getEnvInt("SERVER_PORT", 8080),
-			TrackerURL:  getEnv("TRACKER_URL", "http://localhost:8080/announce"),
-			Environment: getEnv("ENVIRONMENT", "development"),
+			Port:                getEnvInt("SERVER_PORT", 8080),
+			TrackerURL:          getEnv("TRACKER_URL", "http://localhost:8080/announce"),
+			Environment:         getEnv("ENVIRONMENT", "development"),
+			AnnounceInterval:    getEnvDuration("ANNOUNCE_INTERVAL", 1800*time.Second),
+			AnnounceMinInterval: getEnvDuration("ANNOUNCE_MIN_INTERVAL", 900*time.Second),
+			RateLimitWindow:     getEnvDuration("RATE_LIMIT_WINDOW", 15*time.Minute),
+			RateLimitBurst:      getEnvInt("RATE_LIMIT_BURST", 30),
 		},
 	}
 

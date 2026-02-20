@@ -35,7 +35,7 @@ func main() {
 	fmt.Println("✅ Database connected")
 
 	// 创建 Tracker 处理器
-	handler := tracker.NewHandler(db)
+	handler := tracker.NewHandler(db, cfg)
 
 	// 启动后台清理任务
 	go handler.StartCleanup(ctx, 5*time.Minute)

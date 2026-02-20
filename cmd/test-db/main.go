@@ -88,7 +88,7 @@ func testRedis(db *database.DB) {
 	}
 
 	for _, peer := range peers {
-		err := db.Redis.AddPeer(ctx, testInfoHash, peer)
+		err := db.Redis.AddPeer(ctx, testInfoHash, peer, 30*time.Minute)
 		if err != nil {
 			log.Printf("Failed to add peer: %v", err)
 		}

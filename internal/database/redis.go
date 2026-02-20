@@ -71,8 +71,7 @@ func (r *Redis) Close() error {
 // Tracker Peer 相关方法
 
 // AddPeer 添加 Peer 到指定 info_hash 的集合
-// TTL 默认 30 分钟
-func (r *Redis) AddPeer(ctx context.Context, infoHash, peer string) error {
+func (r *Redis) AddPeer(ctx context.Context, infoHash, peer string, ttl time.Duration) error {
 	key := fmt.Sprintf("tracker:peers:%s", infoHash)
 
 	// 添加到集合
@@ -81,7 +80,7 @@ func (r *Redis) AddPeer(ctx context.Context, infoHash, peer string) error {
 	}
 
 	// 设置 TTL
-	return r.Client.Expire(ctx, key, 30*time.Minute).Err()
+	return r.Client.Expire(ctx, key, ttl).Err()
 }
 
 // GetPeers 获取指定 info_hash 的所有 Peer
@@ -134,4 +133,28 @@ func (r *Redis) GetStats(ctx context.Context, infoHash string) (map[string]strin
 func (r *Redis) IncrementCompleted(ctx context.Context, infoHash string) error {
 	key := fmt.Sprintf("tracker:stats:%s", infoHash)
 	return r.Client.HIncrBy(ctx, key, "completed", 1).Err()
+}
+
+// CheckRateLimit 检查指定 IP 的请求频率是否超过限制
+// 返回 true 表示允许请求，返回 false 表示限流
+func (r *Redis) CheckRateLimit(ctx context.Context, ip string, window time.Duration, limit int) (bool, error) {
+	key := fmt.Sprintf("tracker:ratelimit:%s", ip)
+
+	// 原子递增
+	count, err := r.Client.Incr(ctx, key).Result()
+	if err != nil {
+		return false, err
+	}
+
+	// 如果是第一次请求，设置过期时间
+	if count == 1 {
+		r.Client.Expire(ctx, key, window)
+	}
+
+	// 判断是否超过限制
+	if count > int64(limit) {
+		return false, nil
+	}
+
+	return true, nil
 }
