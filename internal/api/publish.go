@@ -14,6 +14,9 @@ import (
 
 // PublishRequest 发布模型的请求结构
 type PublishRequest struct {
+	RepoID      string `json:"repo_id"`
+	Revision    string `json:"revision"`
+	RepoType    string `json:"repo_type"`
 	Name        string `json:"name"`
 	InfoHash    string `json:"info_hash"`
 	TotalSize   int64  `json:"total_size"`
@@ -36,8 +39,8 @@ func (h *Handler) PublishTorrent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 基础校验
-	if req.InfoHash == "" || req.Name == "" {
-		ErrorRes(w, http.StatusBadRequest, "info_hash and name are required")
+	if req.InfoHash == "" || req.RepoID == "" || req.Revision == "" {
+		ErrorRes(w, http.StatusBadRequest, "info_hash, repo_id, and revision are required")
 		return
 	}
 
@@ -46,11 +49,13 @@ func (h *Handler) PublishTorrent(w http.ResponseWriter, r *http.Request) {
 
 	collection := h.db.MongoDB.TorrentsCollection()
 
-	// 使用 Upsert 逻辑（存在则更新，不存在则插入）
-	filter := bson.M{"info_hash": req.InfoHash}
+	// 使用 Upsert 逻辑（根据 RepoID 和 Revision 快照进行判断更新）
+	filter := bson.M{"repo_id": req.RepoID, "revision": req.Revision}
 	update := bson.M{
 		"$set": bson.M{
+			"repo_type":    req.RepoType,
 			"name":         req.Name,
+			"info_hash":    req.InfoHash,
 			"total_size":   req.TotalSize,
 			"file_count":   req.FileCount,
 			"magnet_link":  req.MagnetLink,

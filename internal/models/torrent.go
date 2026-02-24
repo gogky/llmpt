@@ -9,7 +9,10 @@ import (
 // Torrent MongoDB 中的 Torrent 模型
 type Torrent struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Name        string             `bson:"name" json:"name"`                 // 模型名称
+	RepoID      string             `bson:"repo_id" json:"repo_id"`           // 模型仓库 ID (如: meta-llama/Llama-3-8B)
+	Revision    string             `bson:"revision" json:"revision"`         // 模型版本 (如: main 或 commit hash)
+	RepoType    string             `bson:"repo_type" json:"repo_type"`       // 仓库类型 (如: model, dataset, space)
+	Name        string             `bson:"name" json:"name"`                 // 模型显示名称
 	InfoHash    string             `bson:"info_hash" json:"info_hash"`       // 种子唯一指纹
 	TotalSize   int64              `bson:"total_size" json:"total_size"`     // 总大小（字节）
 	FileCount   int                `bson:"file_count" json:"file_count"`     // 文件数量

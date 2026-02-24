@@ -9,6 +9,9 @@ interface TorrentStats {
 
 interface Torrent {
   id: string
+  repo_id: string
+  revision: string
+  repo_type: string
   name: string
   info_hash: string
   total_size: number
@@ -70,7 +73,10 @@ const copyMagnet = async (link: string) => {
 const filteredTorrents = computed(() => {
   if (!searchQuery.value) return torrents.value
   const query = searchQuery.value.toLowerCase()
-  return torrents.value.filter(t => t.name.toLowerCase().includes(query))
+  return torrents.value.filter(t => 
+    (t.repo_id && t.repo_id.toLowerCase().includes(query)) || 
+    (t.name && t.name.toLowerCase().includes(query))
+  )
 })
 </script>
 
@@ -123,7 +129,7 @@ const filteredTorrents = computed(() => {
       <table>
         <thead>
           <tr>
-            <th class="col-name">Model Name</th>
+            <th class="col-name">Repository</th>
             <th class="col-size">Size</th>
             <th class="col-files">Files</th>
             <th class="col-stats">Swarm Health</th>
@@ -134,7 +140,8 @@ const filteredTorrents = computed(() => {
           <tr v-for="torrent in filteredTorrents" :key="torrent.id">
             <td class="col-name">
               <div class="model-info">
-                <span class="model-title">{{ torrent.name }}</span>
+                <span class="model-title">{{ torrent.repo_id || torrent.name }}</span>
+                <span v-if="torrent.revision" class="model-revision">{{ torrent.revision.substring(0, 7) }}</span>
                 <span class="model-hash">{{ torrent.info_hash.substring(0, 8) }}...{{ torrent.info_hash.substring(32) }}</span>
               </div>
             </td>
@@ -282,6 +289,17 @@ tr:hover td {
   font-weight: 600;
   font-size: 1rem;
   color: var(--text-primary);
+}
+
+.model-revision {
+  display: inline-block;
+  font-family: monospace;
+  font-size: 0.75rem;
+  background: rgba(255,255,255,0.08);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  width: fit-content;
 }
 
 .model-hash {

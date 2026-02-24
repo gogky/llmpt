@@ -16,9 +16,15 @@ func (h *Handler) ListTorrents(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	collection := h.db.MongoDB.TorrentsCollection()
 
+	filter := bson.M{}
+	repoID := r.URL.Query().Get("repo_id")
+	if repoID != "" {
+		filter["repo_id"] = repoID
+	}
+
 	// 1. 从 MongoDB 提取列表
 	findOptions := options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}})
-	cursor, err := collection.Find(ctx, bson.M{}, findOptions)
+	cursor, err := collection.Find(ctx, filter, findOptions)
 	if err != nil {
 		log.Printf("Failed to fetch torrents from db: %v", err)
 		ErrorRes(w, http.StatusInternalServerError, "Failed to fetch torrents")

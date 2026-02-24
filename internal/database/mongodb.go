@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -104,23 +105,32 @@ func (m *MongoDB) TorrentsCollection() *mongo.Collection {
 func (m *MongoDB) CreateIndexes(ctx context.Context) error {
 	torrents := m.TorrentsCollection()
 
+	// 兼容旧代码：如果之前存在 name_text 索引（MongoDB 限制同一个集合只能有一个 text 索引），先将其删除
+	// _, _ = torrents.Indexes().DropOne(ctx, "name_text")
+
 	// 创建 info_hash 唯一索引
 	infoHashIndex := mongo.IndexModel{
-		Keys:    map[string]interface{}{"info_hash": 1},
+		Keys:    bson.M{"info_hash": 1},
+		Options: options.Index().SetUnique(true),
+	}
+
+	// 创建 repo_id + revision 联合唯一索引 (保证快照唯一)
+	repoRevisionIndex := mongo.IndexModel{
+		Keys:    bson.D{{Key: "repo_id", Value: 1}, {Key: "revision", Value: 1}},
 		Options: options.Index().SetUnique(true),
 	}
 
 	// 创建 created_at 索引（用于排序）
 	createdAtIndex := mongo.IndexModel{
-		Keys: map[string]interface{}{"created_at": -1},
+		Keys: bson.M{"created_at": -1},
 	}
 
-	// 创建 name 文本索引（用于搜索）
-	nameIndex := mongo.IndexModel{
-		Keys: map[string]interface{}{"name": "text"},
+	// 创建 repo_id 文本索引（用于搜索）
+	repoIdIndex := mongo.IndexModel{
+		Keys: bson.M{"repo_id": "text"},
 	}
 
-	indexes := []mongo.IndexModel{infoHashIndex, createdAtIndex, nameIndex}
+	indexes := []mongo.IndexModel{infoHashIndex, repoRevisionIndex, createdAtIndex, repoIdIndex}
 
 	_, err := torrents.Indexes().CreateMany(ctx, indexes)
 	if err != nil {
