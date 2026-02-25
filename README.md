@@ -37,10 +37,18 @@ go run ./cmd/web-server/main.go
 ```
 
 ### 前端面板 (Vue 3 UI)
-提供可视化操作界面，依赖后端的 8080 端口提供数据。
+提供可视化操作界面，默认依赖后端提供的 `8080` 端口抓取数据。
+如果你的 Web API 后端运行在别的端口（例如 9000），请在启动前通过 `VITE_API_URL` 告知 Vite 代理地址。
+
 ```bash
 cd frontend
 npm install
+
+# 默认启动 (对应 Web API 跑在 8080)
 npm run dev
+
+# (可选) 自定义后端服务地址启动
+# Windows: $env:VITE_API_URL="http://127.0.0.1:9000"; npm run dev
+# Linux/macOS: VITE_API_URL="http://127.0.0.1:9000" npm run dev
 ```
 打开浏览器访问 `http://localhost:5173`。

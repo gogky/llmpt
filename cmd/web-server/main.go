@@ -48,8 +48,8 @@ func main() {
 	// 注册 API 路由
 	handler.RegisterRoutes(mux)
 
-	// API Web Server 默认端口给 8080 (注意要与 Tracker Server 的端口区分开，通常可以用环境变量覆盖)
-	port := 8080
+	// 从配置中获取端口
+	port := cfg.Server.Port
 	addr := fmt.Sprintf(":%d", port)
 
 	server := &http.Server{
