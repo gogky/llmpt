@@ -49,7 +49,7 @@ func main() {
 	})
 
 	// 创建 HTTP 服务器
-	addr := fmt.Sprintf(":%d", cfg.Server.Port)
+	addr := fmt.Sprintf(":%d", cfg.Server.TrackerPort)
 	server := &http.Server{
 		Addr:         addr,
 		Handler:      loggingMiddleware(mux),

@@ -37,7 +37,8 @@ type RedisConfig struct {
 
 // ServerConfig 服务器配置
 type ServerConfig struct {
-	Port                int
+	Port                int // Web API 端口
+	TrackerPort         int // Tracker 端口
 	TrackerURL          string
 	Environment         string
 	AnnounceInterval    time.Duration
@@ -68,7 +69,8 @@ func Load() (*Config, error) {
 		},
 		Server: ServerConfig{
 			Port:                getEnvInt("SERVER_PORT", 8080),
-			TrackerURL:          getEnv("TRACKER_URL", "http://localhost:8080/announce"),
+			TrackerPort:         getEnvInt("TRACKER_PORT", 8081),
+			TrackerURL:          getEnv("TRACKER_URL", "http://localhost:8081/announce"),
 			Environment:         getEnv("ENVIRONMENT", "development"),
 			AnnounceInterval:    getEnvDuration("ANNOUNCE_INTERVAL", 1800*time.Second),
 			AnnounceMinInterval: getEnvDuration("ANNOUNCE_MIN_INTERVAL", 900*time.Second),

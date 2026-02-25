@@ -6,39 +6,53 @@
 - **MongoDB**: 6.0+
 - **Redis**: 7.0+
 
-推荐使用 Docker 本地启动数据库组件：
+推荐使用 Docker Compose 完整启动所有基础设施（数据库与 Nginx 代理）：
 ```bash
-docker run -d -p 27017:27017 --name mongo-llm mongo:latest
-docker run -d -p 6379:6379 --name redis-llm redis:latest
+docker-compose up -d
 ```
 
-## 2. 启动说明
+## 2. 配置说明
+
+项目根目录下有一个 `.env.example` 文件，请将其复制并重命名为 `.env`。
+
+关于 `TRACKER_URL` 的配置：
+- **本地开发**：保持默认的 `http://localhost/announce`（通过 Nginx 代理）。
+- **生产部署**：请将 `TRACKER_URL` 修改为服务器的公网 IP 或真实域名。该地址会被写入 `.torrent` 种子文件中，以供客户端连接使用。
+
+## 3. 启动说明
+
+
+### Nginx 反向代理
+由于 Tracker 和 Web API 分属不同的进程，本项目使用 Nginx 对外提供统一的 `80` 端口。
+请求将会通过以下规则被正确路由：
+- `/announce` -> Tracker (默认 8081)
+- 其他路径 -> Web API (默认 8080)
+
+可以通过 `docker-compose up -d` 直接启动自带正确配置的 Nginx 代理容器。
 
 ### Tracker 服务 (P2P 握手与追踪)
-监听 BitTorrent 客户端的 `/announce` 请求。
+监听 BitTorrent 客户端的 `/announce` 请求。默认本地监听在 8081 端口。
 ```bash
 # Windows
-$env:SERVER_PORT="6969"; go run ./cmd/tracker/main.go
+go run ./cmd/tracker/main.go
 
 # Linux/macOS
-export SERVER_PORT=6969
 go run ./cmd/tracker/main.go
 ```
 
 ### Web API 服务 (模型元数据与接口)
-给前端面板和 CLI 上传元数据提供服务。默认从 8080 端口启动。
+给前端面板和 CLI 上传元数据提供服务。默认监听在 8080 端口。
 ```bash
 # Windows
-$env:SERVER_PORT="8080"; go run ./cmd/web-server/main.go
+go run ./cmd/web-server/main.go
 
 # Linux/macOS
-export SERVER_PORT=8080
 go run ./cmd/web-server/main.go
 ```
 
 ### 前端面板 (Vue 3 UI)
-提供可视化操作界面，默认依赖后端提供的 `8080` 端口抓取数据。
-如果你的 Web API 后端运行在别的端口（例如 9000），请在启动前通过 `VITE_API_URL` 告知 Vite 代理地址。
+提供可视化操作界面，默认依赖统一入口 `80` 抓取数据。
+如果你的统一网关运行在别的端口（例如 9000），请在启动前通过 `VITE_API_URL` 告知 Vite 代理地址。
 
 ```bash
 cd frontend

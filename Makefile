@@ -1,11 +1,11 @@
-.PHONY: help db-up db-down db-logs test-db tracker test-tracker clean
+.PHONY: help db-up db-down db-logs test-db tracker web-server start-backend test-tracker clean dev
 
 help: ## 显示帮助信息
 	@echo "可用命令:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
-db-up: ## 启动数据库（MongoDB + Redis）
-	docker-compose up -d
+db-up: ## 启动本地依赖容器（仅数据库，不启动 Nginx）
+	docker-compose up -d mongodb redis
 	@echo "✅ 数据库已启动"
 	@echo "MongoDB: localhost:27017"
 	@echo "Redis: localhost:6379"
@@ -24,6 +24,14 @@ test-db: ## 测试数据库连接
 tracker: ## 启动 Tracker Server
 	@echo "🚀 启动 Tracker Server..."
 	cd cmd/tracker && go run main.go
+
+web-server: ## 启动 Web API Server
+	@echo "🚀 启动 Web API Server..."
+	cd cmd/web-server && go run main.go
+
+start-backend: ## 用多线程并行启动 Tracker 和 Web Server
+	@echo "🚀 并行启动所有后端服务..."
+	$(MAKE) -j2 tracker web-server
 
 test-tracker: ## 测试 Tracker 功能
 	@echo "🧪 测试 Tracker..."
@@ -65,4 +73,4 @@ vet: ## 代码检查
 
 lint: fmt vet ## 代码格式化和检查
 
-run: db-up tracker ## 启动完整环境（数据库 + Tracker）
+dev: db-up start-backend ## 一键起飞：启动本地开发环境 (数据库容器 + 源码启动所有后端)
